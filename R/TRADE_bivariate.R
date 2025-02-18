@@ -1,6 +1,3 @@
-require(mashr)
-require(ashr)
-
 TRADE_bivariate <- function(results1 = NULL,
                           results2 = NULL,
                           genes_exclude = NULL,

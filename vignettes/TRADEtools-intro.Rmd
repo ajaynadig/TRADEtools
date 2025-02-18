@@ -1,0 +1,365 @@
+---
+title: "Introduction to TRADEtools"
+author: "Ajay Nadig"
+date: "`r Sys.Date()`"
+output: BiocStyle::html_document
+vignette: >
+  %\VignetteIndexEntry{Introduction to TRADEtools}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+# Quick-start tutorial
+## Overview
+
+In this section, we will run univariate and bivariate TRADE analyses using two perturbations (GATA1 and MED12) from Replogle et al, 2020.
+
+For both of these perturbations, summary statistics from DESeq2 are available in the `example` folder. For details on how we ran DESeq2, please see our [manuscript](https://www.biorxiv.org/content/10.1101/2024.07.03.601903v1), and for methodological details about DESeq2, please see the [DESeq2 documentation](https://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html)
+
+Please see the other wiki pages for details on function arguments and outputs, and note that the arguments used in the code below *may not* be appropriate for all analyses.
+
+## Univariate analysis
+First, we install the package
+
+```{r, eval = TRUE}
+devtools::install_github("ajaynadig/TRADEtools")
+library(TRADEtools)
+```
+First, we load the data.
+```{r, eval = TRUE}
+# Load GATA1 data
+gata1_url <- "https://github.com/ajaynadig/TRADEtools/releases/download/0.99.0/GATA1_K562Essential_DESeq2output.Rdata"
+gata1_file <- tempfile(fileext = ".Rdata")
+download.file(gata1_url, gata1_file, mode = "wb")
+load(gata1_file)
+GATA1_K562_results <- results_pseudobulk
+
+# Load MED12 data
+med12_url <- "https://github.com/ajaynadig/TRADEtools/releases/download/0.99.0/MED12_K562Essential_DESeq2output.Rdata"
+med12_file <- tempfile(fileext = ".Rdata")
+download.file(med12_url, med12_file, mode = "wb")
+load(med12_file)
+MED12_K562_results <- results_pseudobulk
+
+```
+
+If we are interested in estimating gene set enrichments, we can also load some gene-wise annotations.
+
+```{r, eval = TRUE}
+annot_url <- "https://github.com/ajaynadig/TRADEtools/releases/download/0.99.0/K562Essential_annot.txt"
+annot_file <- tempfile(fileext = ".txt")
+download.file(annot_url, annot_file, mode = "wb")
+gene_annot <- read.table(annot_file)
+
+
+```
+
+Each column of this table contains a binary gene annotation.
+
+Now, we run univariate TRADE to estimate transcriptome-wide impact
+
+```{r, eval = TRUE}
+GATA1_TRADE <- TRADE(mode = "univariate",
+                     results1 = GATA1_K562_results,
+                     annot_table = gene_annot)
+
+MED12_TRADE <- TRADE(mode = "univariate",
+                     results1 = MED12_K562_results,
+                     annot_table = gene_annot)
+
+#Compare the transcriptome-wide impact estimates
+print(GATA1_TRADE$distribution_summary$transcriptome_wide_impact)
+print(MED12_TRADE$distribution_summary$transcriptome_wide_impact)
+
+#Compare the enrichments
+print(GATA1_TRADE$annot_output)
+print(MED12_TRADE$annot_output)
+
+```
+
+```
+> print(GATA1_TRADE$distribution_summary$transcriptome_wide_impact)
+[1] 0.4001647
+
+> print(MED12_TRADE$distribution_summary$transcriptome_wide_impact)
+[1] 0.2368311
+```
+
+Example enrichment output:
+
+| Annot | Variance | Frac_var | Frac_genes | Enrichment |
+
+| loeuf_bottom10 | 0.4170 | 0.1674 | 0.1607 | 1.0414 |
+
+| loeuf_top50 | 0.4206 | 0.3682 | 0.3511 | 1.0485 |
+
+[other lines omitted]
+
+## Bivariate analysis
+We now will use bivariate mode to estimate the transcriptome-wide impact correlation between these two perturbations.
+```{r, eval = FALSE}
+GATA1_MED12_TRADE = TRADE(mode = "bivariate",
+                          results1 = GATA1_K562_results,
+                          results2 = MED12_K562_results)
+
+#What is the effect size correlation?
+print(GATA1_MED12_TRADE$TI_correlation)
+```
+
+```
+> print(GATA1_MED12_TRADE$TI_correlation)
+[1] 0.7193728
+
+```
+
+# Preparing Differential Expression Summary Statistics for TRADE
+## Overview
+
+TRADE operates on gene-wise summary statistics, and expects inputs to have the following columns:
+
+`log2FoldChange`: The log2FoldChange of mean gene expression
+
+`lfcSE`: The associated standard errors for the log2FoldChange
+
+`pvalue`: The un-adjusted p-values associated with each gene (Optional)
+
+These quantities can be estimated with many different publicly available packages. One of the most popular packages, and the one that we used while developing our method, is [DESeq2](https://bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html). We have run extensive simulations using DESeq2, and aim to do so for other popular packages in the future. 
+
+## Summary statistics QC
+
+For various reasons, differential expression analysis may produce incorrect estimates, such as cases where the DESeq2 model does not converge. While TRADE attempts to remove such log2FoldChanges, you should still visualize log2FoldChanges and remove any clearly incorrect estimates. For example, in cases where all counts are zero for one condition or the other and the log2FoldChange is not defined, DESeq2 outputs large, very noisy estimates that should be removed from the analysis. 
+
+Additionally, calibration of standard errors is crucially important for TRADE analyses. We have validated DESeq2 standard errors via a non-parametric bootstrap analysis, and similar simulations may be appropriate if you choose to use different DE software. Please reach out to me if you conduct such an analysis, so that we can update this wiki for future users. 
+
+## P values
+
+P-values should be provided if you wish to estimate the fraction of differential expression signal that is located in significant genes. Unadjusted p-values should be provided, as TRADE performs both FDR and Bonferroni correction internally.
+
+## Gene names
+
+The rownames of these summary statistics should correspond to gene names; the naming conventions must be identical between summary statistics for bivariate mode. 
+
+## Number of Genes
+
+The number of genes included can potentially affect TRADE output. Just as in other functional genomic analyses, the best choice of gene filtering may vary from project to project. It is crucial, however, that input to TRADE is not filtered based on the magnitude of the log2FoldChange, as this will lead to biased results. 
+
+# Running TRADE (univariate)
+## Overview
+
+In univariate mode, TRADE estimates the distribution of differential expression effects for a single contrast.
+
+Sample command:
+
+```{r, eval = FALSE}
+TRADE_output <- TRADE(mode = "univariate",
+                     results1 = results,
+                     annot_table = NULL,
+                     genes_exclude = NULL,
+                     n_sample = NULL)
+```
+
+## Additional inputs
+
+### `annot_table`
+
+TRADE can estimate enrichments of differential expression effects in gene sets. To perform such an analysis, a number_genes x number_annotations matrix should be provided in the `annot_table` argument, with binary entries where 1 indicates membership in a gene set, and rownames contain gene names. The gene naming convention for the annotation must be the same as the input differential expression summary statistics.
+
+### `genes_exclude`
+
+This input can be used to exclude genes present in the summary statistics from TRADE analysis. For example, if your dataset is from perturbation of a particular gene, and you are interested only in effects of perturbation on other genes, you may exclude that gene.
+
+### `n_sample`
+
+For various reasons, you may want to draw samples from the inferred effect size distribution, i.e. to compute some distribution feature of interest without a simple analytical solution. You can specify the number of samples to draw with the `n_sample` argument.
+
+
+### `verbosity`
+
+Setting verbosity to `TRUE` will give more detailed progress updates as TRADE runs.
+
+## TRADE output
+
+### `distribution_summary`
+
+This is the key TRADE output for most analyses, and contains the following three estimates:
+
+* `transcriptome_wide_impact`: The transcriptome-wide impact, i.e. the variance of the inferred effect size distribution. This quantity, in units of log2FoldChange^2, is a measure of the overall effect of the contrast of interest on the transcriptome. For more details please see the manuscript.
+* `Me`: The effective number of DEGs. This is a function of the kurtosis of the effect size distribution, and captures the number of DEGs in a manner that does not rely on an arbitrary threshold between null and very small effects. For more details please see the manuscript. *Note that Me estimates are generally uninterpretable in the setting of non-significant transcriptome-wide impact*. This is the most likely explanation if you estimate Me to be very close to the total number of genes.
+* `mean`: The mean of the effect size distribution. Provided for completeness, it is not clear how to interpret this number, especially in the setting of normalization procedures that remove expression changes that are consistent across the whole transcriptome.
+
+### `significant_genes_Bonferroni` and `significant_genes_FDR`
+
+This output contains estimates related to significant genes. For both Bonferroni and FDR correction procedures, this output contains:
+
+* `significant_gene_results`: A table simply containing the differential expression summary statistics for the significant genes.
+* `var_sig`: The effect size variance for significant genes. This is like a transcriptome-wide impact estimate for just significant genes.
+* `var_nonsig`: The effect size variance for nonsignificant genes. This is like a transcriptome-wide impact estimate just for non-significant genes.
+* `frac_sig`: The proportion of differential expression signal in significant genes. When this number is low, the majority of differential expression signal is outside of significant genes.
+* `num_sig`: The number of significant genes.
+* `num_nonsig`: The number of non-significant genes.
+
+### `annot_output`
+
+This output contains a table with estimates related to gene annotations. The columns of this table are:
+
+* `annot`: The name of the annotation.
+* `var`: The variance of the effect size distribution for genes in this annotation. This is like a gene-set-specific transcriptome-wide impact.
+* `frac_var`: The fraction of differential expression signal in this gene set.
+* `frac_genes`: The fraction of genes in this gene set
+* `enrichment`: The enrichment of differential expression signal in this gene set, i.e. `frac_var`/`frac_genes`
+
+*Note that enrichments are only well-defined in the setting of non-zero transcriptome-wide impact. If you see very strange results, this is the most likely explanation*
+
+### `fit`
+
+This output contains the actual inferred effect size distribution. This is taken directly from the `ash` output; please consult the [ashR](https://cran.r-project.org/web/packages/ashr/index.html) documentation for detailed explanation. Briefly, the components of the inferred distribution are:
+
+* `pi`: The inferred mixture weights.
+* `a`: The left boundaries of the half-uniform mixture components
+* `b`: the right boundaries of the half-uniform mixture components
+
+Additionally, `loglik` contains the log-likelihood for the model fit, which can be helpful for model comparison.
+
+### `qc`
+
+This output contains quality control metrics:
+
+* `num_na`: The number of NA effects in the supplied differential expression summary statistics.
+* `num_extreme`: The number of effects with log2FoldChange magnitude greater than 10, which are removed from the analysis. This is a rough heuristic meant to catch cases where DESeq2 did not converge, and perhaps should be a user specified parameter.
+* `num_exclude`: The total number of genes excluded by the above two filters.
+
+# Running TRADE (bivariate)
+## Overview
+
+In bivariate mode, TRADE estimates the joint distribution of differential expression effects for two contrasts.
+
+Sample command:
+
+```{r, eval = FALSE}
+TRADE_output = TRADE(mode = "bivariate",
+                          results1 = results1,
+                          results2 = results2,
+                          genes_exclude = NULL,
+                          estimate_sampling_covariance = FALSE,
+                          covariance_matrix_set = "combined",
+                          component_varexplained_threshold = 0,
+                          weight_nocorr = 1,
+                          n_sample = NULL)
+```
+
+## Additional inputs
+
+### `genes_exclude`
+
+The `genes_exclude` flag can be used to exclude genes present in the summary statistics from TRADE analysis. For example, if your dataset is from perturbation of a particular gene, and you are interested only in effects of perturbation on other genes, you may exclude that gene.
+
+### `estimate_sampling_covariance`
+
+In some cases, there may be covariance of sampling error between the two sets of results, which may inflate estimated correlations. For example, if the two sets of results use shared controls, there may be correlation of effects due to this overlap. When `estimate_sampling_covariance` is set to `TRUE`, TRADE uses the `mashr` sampling covariance estimation procedure to account for this issue. For details, please see the [mash documentation](https://stephenslab.github.io/mashr/reference/mash_estimate_corr_em.html).
+
+### `covariance_matrix_set`
+
+A key step of TRADE is selecting the set of mixture components to fit to the observed effect sizes; this is more complex in the bivariate than univariate case. We have devised an "adaptive grid" strategy for selecting these components, which can be accessed by setting this argument to `adaptive_grid`. Alternatively, the default method implemented in the `mashr` package can be accessed by setting this argument to `mash_default`. By default, this argument is set to `combined`, which takes the union of these two covariance matrix sets.
+
+### `component_varexplained_threshold`
+
+To select mixture components, the "adaptive_grid" strategy above first fits univariate models for each perturbation, then designs bivariate components based on these univariate models. We speed up computation by removing components that receive weights of 0 in the univariate model. Increasing this threshold will speed up computation, potentially at the cost of model fit.
+
+### `weight_nocorr`
+
+For some settings, it may be advantageous to penalize models that place high weight on mixture components with non-zero correlations, such as the very low sample size regime. This penalty can be set with the `weight_nocorr` argument; a value of 1 corresponds to no penalty. 
+
+### `n_sample`
+
+For various reasons, you may want to draw samples from the inferred effect size distribution, i.e. to compute some distribution feature of interest without a simple analytical solution. You can specify the number of samples to draw with the `n_sample` argument.
+
+### `verbosity`
+
+Setting verbosity to `TRUE` will give more detailed progress updates as TRADE runs.
+
+## TRADE output
+
+### `TI_correlation`
+
+The transcriptome-wide impact correlation, i.e. the inferred correlation of differential expression effects between the two sets of summary statistics
+
+*Note that these correlations are only well-defined if transcriptome-wide impact is nonzero for both experiments. If you see extreme or unusual results, this is the most likely explanation*
+###  `correlation_matrix`
+The inferred correlation matrix for differential expression effects between the sets of summary statistics.
+
+### `covariance matrix`
+The inferred covariance matrix of differential expression effects between the sets of summary statistics. The diagonal elements of this matrix are in the same units as transcriptome-wide impact. Note however, that for estimating univariate transcriptome-wide impact of each set of results, we recommend running univariate TRADE separately, as univariate TRADE uses a more flexible model and likely produces better estimates. 
+
+### `cor_raw`
+The raw Pearson correlation between log2FoldChanges between the sets of summary statistics.
+
+### `fitted` 
+This output contains the actual inferred effect size distribution. This is taken directly from the `mash` output; please consult the [mashR](https://stephenslab.github.io/mashr/index.html) documentation for detailed explanation. Briefly, the components of the inferred distribution are:
+
+* `pi`: The inferred mixture weights.
+* `Ulist`: The covariance matrices for the mixture components
+
+### `samples`
+
+This output contains samples from the inferred effect size distribution.
+
+### `V`
+
+This output contains the sampling covariance matrix used for the analysis. This matrix is only not equal to the identity matrix when `estimate_sampling_covariance` is set to `TRUE`
+
+### `loglik`
+
+The log-likelihood for the model fit, which can be useful for model comparison.
+
+### `runtime`
+
+The runtime for the analysis
+
+# Estimating significance and standard errors for TRADE analyses
+## Overview
+
+For many analyses, users may desire to quantify uncertainty in, or perform null-hypothesis significance testing for, estimates from TRADE.
+
+Unfortunately, unlike genetic analyses, where genomic loci can be assumed to be independent, coexpression between genes is ubiquitous. This prevents us from estimating standard errors for TRADE estimates via strategies such as a gene jackknife.
+
+As a result, uncertainty in TRADE estimates must be quantified by jackknifing or bootstrapping samples. While developing software to universally implement this approach for all datasets is not feasible, below we provide general guidelines for doing so.
+
+## Jackknife
+
+Consider the following situations:
+
+* Scenario 1: Your experiment consists of 50 independent bulk RNA-seq samples per condition.
+* Scenario 2:  Your experiment is a large single-cell Perturb-Seq experiment, with thousands of perturbed and control cells spread across 50 batches.
+
+In these cases, a jackknife strategy can be used to estimate the standard error of TRADE estimates as follows:
+
+1. To obtain a point estimate, run DESeq2 (or your differential expression package of choice) and TRADE on the full dataset.
+2. Then, re-run DESeq2 and TRADE many times, each time excluding one sample (Scenario 1) or one batch (Scenario 2). 
+3. Compute the [jackknife standard error](https://en.wikipedia.org/wiki/Jackknife_resampling) for any TRADE estimate of interest (e.g. transcriptome-wide impact, Me, enrichments, etc.) using these leave-one-out estimates.
+
+## Permutation
+
+Consider the following situations:
+
+* Scenario 3: Like Scenario 1 above, your experiment consists of 50 independent bulk RNA-seq samples per condition. However, in this scenario, the analysis is only interested in null-hypothesis significance testing, i.e. whether the transcriptome-wide impact is significantly different than zero.
+* Scenario 4: Your experiment is a mouse bulk RNA-seq experiment with 5 animals per condition.
+
+In these cases, a permutation strategy may be more appropriate. For Scenario 3, it is appropriate because the user is only interested in null hypothesis significance testing and has no need for standard error estimates. For Scenario 4, it is appropriate because the number of samples is too low for jackknife/bootstrap, and significance may be the only plausible way to understand uncertainty of TRADE estimates. A permutation analysis would proceed as follows:
+
+1. To obtain a point estimate, run DESeq2 (or your differential expression package of choice) and TRADE on the full dataset.
+2. Then, re-run DESeq2 and TRADE many times, each time scrambling condition labels
+3. Compute the p-value for the relevant TRADE estimate (i.e. transcriptome-wide impact) by calculating the proportion of permutation estimates that exceed the empirical, full-data estimate.
+
+
+
+
+
+
+
+

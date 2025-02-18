@@ -1,7 +1,3 @@
-require(ggplot2)
-require(doBy)
-require(ashr)
-
 TRADE_univariate <- function(results = NULL,
                            annot_table = NULL,
                            model_significant = TRUE,
