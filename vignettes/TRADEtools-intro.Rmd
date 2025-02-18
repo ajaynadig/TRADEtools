@@ -89,27 +89,9 @@ print(MED12_TRADE$annot_output)
 
 ```
 
-```
-> print(GATA1_TRADE$distribution_summary$transcriptome_wide_impact)
-[1] 0.4001647
-
-> print(MED12_TRADE$distribution_summary$transcriptome_wide_impact)
-[1] 0.2368311
-```
-
-Example enrichment output:
-
-| Annot | Variance | Frac_var | Frac_genes | Enrichment |
-
-| loeuf_bottom10 | 0.4170 | 0.1674 | 0.1607 | 1.0414 |
-
-| loeuf_top50 | 0.4206 | 0.3682 | 0.3511 | 1.0485 |
-
-[other lines omitted]
-
 ## Bivariate analysis
 We now will use bivariate mode to estimate the transcriptome-wide impact correlation between these two perturbations.
-```{r, eval = FALSE}
+```{r, eval = TRUE}
 GATA1_MED12_TRADE = TRADE(mode = "bivariate",
                           results1 = GATA1_K562_results,
                           results2 = MED12_K562_results)
@@ -118,11 +100,6 @@ GATA1_MED12_TRADE = TRADE(mode = "bivariate",
 print(GATA1_MED12_TRADE$TI_correlation)
 ```
 
-```
-> print(GATA1_MED12_TRADE$TI_correlation)
-[1] 0.7193728
-
-```
 
 # Preparing Differential Expression Summary Statistics for TRADE
 ## Overview
