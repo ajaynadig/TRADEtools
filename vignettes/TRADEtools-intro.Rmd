@@ -11,9 +11,15 @@ vignette: >
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
+  warninge = FALSE,
   collapse = TRUE,
-  comment = "#>"
-)
+  comment = "#>")
+  
+library(DESeq2)
+library(S4Vectors)
+library(stats4)
+library(BiocGenerics)
+
 ```
 # Quick-start tutorial
 ## Overview
@@ -28,7 +34,7 @@ Please see the other wiki pages for details on function arguments and outputs, a
 First, we install the package
 
 ```{r, eval = TRUE}
-devtools::install_github("ajaynadig/TRADEtools")
+#devtools::install_github("ajaynadig/TRADEtools")
 library(TRADEtools)
 ```
 First, we load the data.
@@ -39,14 +45,14 @@ gata1_file <- tempfile(fileext = ".Rdata")
 download.file(gata1_url, gata1_file, mode = "wb")
 load(gata1_file)
 GATA1_K562_results <- results_pseudobulk
-
+print(head(GATA1_K562_results))
 # Load MED12 data
 med12_url <- "https://github.com/ajaynadig/TRADEtools/releases/download/0.99.0/MED12_K562Essential_DESeq2output.Rdata"
 med12_file <- tempfile(fileext = ".Rdata")
 download.file(med12_url, med12_file, mode = "wb")
 load(med12_file)
 MED12_K562_results <- results_pseudobulk
-
+print(head(MED12_K562_results))
 ```
 
 If we are interested in estimating gene set enrichments, we can also load some gene-wise annotations.

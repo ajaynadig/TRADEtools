@@ -47,13 +47,19 @@ TRADE_univariate <- function(results = NULL,
 }
 
 fit_ash <- function(l2fc,l2fc_se,min_l2fc,max_l2fc,n_sample) {
-  ash_model = ash(betahat = l2fc,
-                  sebetahat = l2fc_se,
-                  mixcompdist = "halfuniform",
-                  outputlevel = 3,
-                  grange = c(min_l2fc,max_l2fc),
-                  prior = "uniform")
-
+  #Suppress warning about biased lfsr estimates due to not using null biased prior
+  withCallingHandlers({
+    ash_model = ash(betahat = l2fc,
+                    sebetahat = l2fc_se,
+                    mixcompdist = "halfuniform",
+                    outputlevel = 3,
+                    grange = c(min_l2fc,max_l2fc),
+                    prior = "uniform")  }, warning = function(w) {
+    if (grepl("nullbiased", conditionMessage(w))) {
+      invokeRestart("muffleWarning")  # Suppresses this warning only
+    }
+  })
+  
   weights =  ash_model$fitted_g$pi
   uniform_a = ash_model$fitted_g$a
   uniform_b = ash_model$fitted_g$b
