@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/742922433.svg)](https://doi.org/10.5281/zenodo.14993815)
+
 ![logo_image](https://github.com/ajaynadig/TRADE/blob/main/github_image_crop.jpg?raw=true#gh-light-mode-only)
 ![logo_image](https://github.com/ajaynadig/TRADE/blob/main/github_image_crop_dark.jpg?raw=true#gh-dark-mode-only)
 
