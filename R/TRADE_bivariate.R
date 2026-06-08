@@ -44,8 +44,8 @@ TRADE_bivariate <- function(results1 = NULL,
     if (verbose) {message("Get data-driven covariance matrices")}
     
     m.1by1 = mash_1by1(data)
-    strong = unique(which.minn(m.1by1$result$lfsr[,1],round(0.05 * nrow(m.1by1$result$lfsr))),
-                    which.minn(m.1by1$result$lfsr[,2],round(0.05 * nrow((m.1by1$result$lfsr)))))
+    strong = union(which.minn(m.1by1$result$lfsr[,1],round(0.05 * nrow(m.1by1$result$lfsr))),
+                   which.minn(m.1by1$result$lfsr[,2],round(0.05 * nrow((m.1by1$result$lfsr)))))
     U.pca = cov_pca(data,2,subset=strong)
     U.ed = cov_ed(data, U.pca, subset=strong)
     
